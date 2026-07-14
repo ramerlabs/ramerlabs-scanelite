@@ -1,0 +1,11 @@
+# ScanElite
+node_modules/
+.DS_Store
+.idea/
+*.iml
+local.properties
+build/
+.gradle/
+*.apk
+*.aab
+.vscode/
