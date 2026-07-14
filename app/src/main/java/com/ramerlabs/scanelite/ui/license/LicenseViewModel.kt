@@ -30,8 +30,12 @@ class LicenseViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val cached = repository.publicStatus().valid
-            val valid = if (cached) repository.validateStored(force = false) else false
+            // No stored key → stay locked. Stored key → force online validate on launch.
+            val valid = if (repository.publicStatus().valid) {
+                repository.validateStored(force = true)
+            } else {
+                false
+            }
             _state.update { it.copy(checking = false, unlocked = valid) }
         }
     }

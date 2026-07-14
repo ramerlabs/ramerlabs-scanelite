@@ -102,7 +102,12 @@ class LicenseRepository @Inject constructor(
             .put("product_slug", LicenseConstants.PRODUCT_SLUG)
             .put("site_url", installSiteUrl())
         val res = postJson("validate", body)
+        val networkError = res.optString("message").contains("Could not reach", ignoreCase = true)
         val valid = res.optBoolean("success", false) || res.optBoolean("valid", false)
+        if (!valid && networkError && prefs.getBoolean(LicenseConstants.KEY_VALID, false)) {
+            // Already activated earlier — allow offline grace if server unreachable.
+            return@withContext true
+        }
         prefs.edit()
             .putBoolean(LicenseConstants.KEY_VALID, valid)
             .putLong(LicenseConstants.KEY_VALIDATED_AT, System.currentTimeMillis())
