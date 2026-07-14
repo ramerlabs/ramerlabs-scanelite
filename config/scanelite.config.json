@@ -1,0 +1,69 @@
+{
+  "product": {
+    "name": "ScanElite",
+    "tagline": "Crystal-clear scans. Instant share.",
+    "company": "RamerLabs",
+    "website": "https://ramerlabs.com",
+    "supportEmail": "support@ramerlabs.com",
+    "credits": "A product by RamerLabs · ramerlabs.com",
+    "version": "1.0.0-spec"
+  },
+  "platform": {
+    "primary": "Android",
+    "ui": "Jetpack Compose",
+    "minSdk": 26,
+    "targetSdk": 35,
+    "future": ["iOS (optional Phase 2)"]
+  },
+  "theme": {
+    "defaultMode": "dark",
+    "colors": {
+      "bgPrimary": "#14181F",
+      "bgElevated": "#1C222C",
+      "bgSurface": "#242B36",
+      "textPrimary": "#F5F7FA",
+      "textSecondary": "#9AA3B2",
+      "accentGold": "#C9A227",
+      "accentEmerald": "#2ECC8A",
+      "edgeDetectNeon": "#4DA3FF",
+      "edgeDetectGold": "#E6C35C",
+      "danger": "#E45D5D",
+      "divider": "#2E3644"
+    },
+    "radii": {
+      "sm": 8,
+      "md": 12,
+      "lg": 16,
+      "pill": 999
+    },
+    "typography": {
+      "fontFamily": "Plus Jakarta Sans / Inter alternative — modern geometric sans",
+      "display": { "sizeSp": 28, "weight": 700 },
+      "title": { "sizeSp": 20, "weight": 600 },
+      "body": { "sizeSp": 15, "weight": 400 },
+      "label": { "sizeSp": 13, "weight": 500 },
+      "caption": { "sizeSp": 12, "weight": 400 }
+    },
+    "motion": {
+      "fastMs": 180,
+      "normalMs": 280,
+      "capturePulseMs": 420
+    }
+  },
+  "features": {
+    "singleScan": true,
+    "batchScan": true,
+    "realtimeEdgeDetection": true,
+    "autoCapture": true,
+    "perspectiveCorrection": true,
+    "filters": ["Magic Color", "B&W", "Original Photo"],
+    "reviewReorderRotateRecrop": true,
+    "exportFormats": ["PDF", "JPEG"],
+    "shareTargets": ["WhatsApp", "Telegram", "Facebook", "Email"]
+  },
+  "brandAssets": {
+    "icon": "brand/icon.png",
+    "logo": "brand/logo.png"
+  },
+  "specDocument": "docs/SCANELITE_UI_UX_SPEC.md"
+}

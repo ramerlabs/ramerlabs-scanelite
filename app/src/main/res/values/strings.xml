@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ScanElite</string>
+    <string name="credits_label">A product by RamerLabs</string>
+    <string name="credits_url_label">ramerlabs.com</string>
+    <string name="credits_url">https://ramerlabs.com</string>
+    <string name="tagline">Crystal-clear scans. Instant share.</string>
+</resources>
