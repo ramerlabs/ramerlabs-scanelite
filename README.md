@@ -1,6 +1,8 @@
 # ScanElite
 
-![ScanElite](brand/logo.png)
+![ScanElite marketing](brand/scanelite-hero-marketing.png)
+
+![ScanElite logo](brand/logo.png)
 
 Premium Android document scanner — capture, auto-align, enhance, and share.
 
