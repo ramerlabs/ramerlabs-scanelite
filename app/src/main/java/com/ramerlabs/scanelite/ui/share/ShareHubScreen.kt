@@ -14,10 +14,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,6 +38,7 @@ import com.ramerlabs.scanelite.ui.components.RamerLabsCredits
 import com.ramerlabs.scanelite.ui.session.SessionViewModel
 import com.ramerlabs.scanelite.ui.theme.SeBgElevated
 import com.ramerlabs.scanelite.ui.theme.SeBgPrimary
+import com.ramerlabs.scanelite.ui.theme.SeEmerald
 import com.ramerlabs.scanelite.ui.theme.SeGold
 import com.ramerlabs.scanelite.ui.theme.SeTextPrimary
 import com.ramerlabs.scanelite.ui.theme.SeTextSecondary
@@ -51,6 +54,7 @@ fun ShareHubScreen(
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var savedMessage by remember { mutableStateOf<String?>(null) }
 
     fun shareTo(packageName: String?, actionLabel: String, email: Boolean = false) {
         scope.launch {
@@ -73,14 +77,52 @@ fun ShareHubScreen(
                     }
                     if (packageName != null) setPackage(packageName)
                 }
-                val chooser = Intent.createChooser(intent, actionLabel)
-                context.startActivity(chooser)
+                context.startActivity(Intent.createChooser(intent, actionLabel))
             } catch (e: Exception) {
                 error = e.message ?: "Share failed"
             } finally {
                 busy = false
             }
         }
+    }
+
+    fun saveToAlbum() {
+        scope.launch {
+            busy = true
+            error = null
+            try {
+                val name = sessionViewModel.saveToGallery()
+                val where = if (state.exportFormat == ExportFormat.Pdf) {
+                    "Downloads/ScanElite"
+                } else {
+                    "Pictures/ScanElite"
+                }
+                savedMessage = "Saved \"$name\" to your phone album ($where)."
+            } catch (e: Exception) {
+                error = e.message ?: "Could not save to album"
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    if (savedMessage != null) {
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text("Saved successfully") },
+            text = { Text(savedMessage ?: "") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        savedMessage = null
+                        sessionViewModel.resetSession()
+                        onDone()
+                    }
+                ) {
+                    Text("OK", color = SeGold, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        )
     }
 
     Column(
@@ -101,8 +143,18 @@ fun ShareHubScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-        Text("One-tap share", color = SeTextSecondary, modifier = Modifier.padding(bottom = 8.dp))
+        Spacer(modifier = Modifier.height(20.dp))
+        Button(
+            onClick = { saveToAlbum() },
+            enabled = !busy,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = SeEmerald, contentColor = SeBgPrimary)
+        ) {
+            Text("Save to phone album", fontWeight = FontWeight.SemiBold)
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+        Text("Or share", color = SeTextSecondary, modifier = Modifier.padding(bottom = 8.dp))
 
         ShareTarget("WhatsApp") { shareTo("com.whatsapp", "WhatsApp") }
         ShareTarget("Telegram") { shareTo("org.telegram.messenger", "Telegram") }
@@ -110,11 +162,18 @@ fun ShareHubScreen(
         ShareTarget("Email") { shareTo(null, "Email", email = true) }
 
         if (busy) {
-            Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
                 CircularProgressIndicator(color = SeGold)
             }
         }
-        error?.let { Text(it, color = SeTextSecondary, modifier = Modifier.padding(top = 8.dp)) }
+        error?.let {
+            Text(it, color = SeTextSecondary, modifier = Modifier.padding(top = 8.dp))
+        }
 
         Spacer(modifier = Modifier.weight(1f))
         Button(
@@ -126,9 +185,9 @@ fun ShareHubScreen(
                 }
             },
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = SeGold, contentColor = SeBgPrimary)
+            colors = ButtonDefaults.buttonColors(containerColor = SeBgElevated, contentColor = SeTextPrimary)
         ) {
-            Text("Done", fontWeight = FontWeight.SemiBold)
+            Text("Done without saving")
         }
         Spacer(modifier = Modifier.height(16.dp))
         RamerLabsCredits(modifier = Modifier.fillMaxWidth())

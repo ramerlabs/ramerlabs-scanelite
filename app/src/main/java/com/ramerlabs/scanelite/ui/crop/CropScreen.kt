@@ -48,7 +48,9 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
-private enum class DragHandle { None, Move, Left, Top, Right, Bottom, TopLeft, TopRight, BottomLeft, BottomRight }
+private enum class DragHandle {
+    None, Move, Left, Top, Right, Bottom, TopLeft, TopRight, BottomLeft, BottomRight
+}
 
 @Composable
 fun CropScreen(
@@ -76,7 +78,17 @@ fun CropScreen(
     val imageBitmap = remember(page.uriPath) {
         BitmapFactory.decodeFile(page.uriPath)?.asImageBitmap()
     }
-    var crop by remember(page.id, page.crop) { mutableStateOf(page.crop.clamped()) }
+    // Start slightly inset so handles are easy to grab (full-bleed looks “stuck”).
+    var crop by remember(page.id) {
+        mutableStateOf(
+            page.crop.let {
+                if (it.left == 0f && it.top == 0f && it.right == 1f && it.bottom == 1f) {
+                    CropNorm(0.08f, 0.08f, 0.92f, 0.92f)
+                } else it.clamped()
+            }
+        )
+    }
+    var activeHandle by remember { mutableStateOf(DragHandle.None) }
 
     fun persistCrop() {
         sessionViewModel.updateCropForPage(page.id, crop)
@@ -90,11 +102,16 @@ fun CropScreen(
     ) {
         Text("Crop area", fontWeight = FontWeight.Bold, fontSize = 22.sp, color = SeTextPrimary)
         Text(
-            "Page ${index + 1} of ${pages.size} · drag edges or corners",
+            "Page ${index + 1} of ${pages.size} · drag the gold corners to resize",
             color = SeTextSecondary,
             fontSize = 13.sp
         )
-        Text(state.documentTitle, color = SeGold, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+        Text(
+            state.documentTitle,
+            color = SeGold,
+            fontSize = 12.sp,
+            modifier = Modifier.padding(top = 4.dp)
+        )
         Spacer(modifier = Modifier.height(12.dp))
 
         Box(
@@ -106,8 +123,8 @@ fun CropScreen(
         ) {
             if (imageBitmap != null) {
                 BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                    val boxW = constraints.maxWidth.toFloat()
-                    val boxH = constraints.maxHeight.toFloat()
+                    val boxW = constraints.maxWidth.toFloat().coerceAtLeast(1f)
+                    val boxH = constraints.maxHeight.toFloat().coerceAtLeast(1f)
                     val iw = imageBitmap.width.toFloat()
                     val ih = imageBitmap.height.toFloat()
                     val scale = min(boxW / iw, boxH / ih)
@@ -123,85 +140,90 @@ fun CropScreen(
                         modifier = Modifier.fillMaxSize()
                     )
 
-                    var active by remember { mutableStateOf(DragHandle.None) }
-
+                    // IMPORTANT: do not put `crop` in pointerInput keys — that restarts gestures mid-drag.
                     Canvas(
                         modifier = Modifier
                             .fillMaxSize()
-                            .pointerInput(page.id, crop) {
+                            .pointerInput(page.id, offsetX, offsetY, drawW, drawH) {
                                 detectDragGestures(
                                     onDragStart = { start ->
-                                        val l = offsetX + crop.left * drawW
-                                        val t = offsetY + crop.top * drawH
-                                        val r = offsetX + crop.right * drawW
-                                        val b = offsetY + crop.bottom * drawH
-                                        val hit = 48f
-                                        active = when {
+                                        val c = crop
+                                        val l = offsetX + c.left * drawW
+                                        val t = offsetY + c.top * drawH
+                                        val r = offsetX + c.right * drawW
+                                        val b = offsetY + c.bottom * drawH
+                                        val hit = 72f
+                                        activeHandle = when {
                                             near(start, l, t, hit) -> DragHandle.TopLeft
                                             near(start, r, t, hit) -> DragHandle.TopRight
                                             near(start, l, b, hit) -> DragHandle.BottomLeft
                                             near(start, r, b, hit) -> DragHandle.BottomRight
-                                            abs(start.x - l) < hit && start.y in t..b -> DragHandle.Left
-                                            abs(start.x - r) < hit && start.y in t..b -> DragHandle.Right
-                                            abs(start.y - t) < hit && start.x in l..r -> DragHandle.Top
-                                            abs(start.y - b) < hit && start.x in l..r -> DragHandle.Bottom
+                                            abs(start.x - l) < hit && start.y in (t - hit)..(b + hit) ->
+                                                DragHandle.Left
+                                            abs(start.x - r) < hit && start.y in (t - hit)..(b + hit) ->
+                                                DragHandle.Right
+                                            abs(start.y - t) < hit && start.x in (l - hit)..(r + hit) ->
+                                                DragHandle.Top
+                                            abs(start.y - b) < hit && start.x in (l - hit)..(r + hit) ->
+                                                DragHandle.Bottom
                                             start.x in l..r && start.y in t..b -> DragHandle.Move
                                             else -> DragHandle.None
                                         }
                                     },
                                     onDragEnd = {
-                                        active = DragHandle.None
+                                        activeHandle = DragHandle.None
                                         persistCrop()
                                     },
-                                    onDragCancel = { active = DragHandle.None },
+                                    onDragCancel = { activeHandle = DragHandle.None },
                                     onDrag = { change, amount ->
                                         change.consume()
+                                        if (activeHandle == DragHandle.None || drawW <= 0f || drawH <= 0f) return@detectDragGestures
                                         val dx = amount.x / drawW
                                         val dy = amount.y / drawH
-                                        crop = when (active) {
-                                            DragHandle.Move -> CropNorm(
-                                                left = crop.left + dx,
-                                                top = crop.top + dy,
-                                                right = crop.right + dx,
-                                                bottom = crop.bottom + dy
-                                            ).clamped().let { c ->
-                                                // Keep size when hitting edges
-                                                val w = crop.right - crop.left
-                                                val h = crop.bottom - crop.top
-                                                CropNorm(
-                                                    c.left.coerceIn(0f, 1f - w),
-                                                    c.top.coerceIn(0f, 1f - h),
-                                                    c.left.coerceIn(0f, 1f - w) + w,
-                                                    c.top.coerceIn(0f, 1f - h) + h
-                                                )
+                                        val c = crop
+                                        val minSize = 0.08f
+                                        crop = when (activeHandle) {
+                                            DragHandle.Move -> {
+                                                val w = c.right - c.left
+                                                val h = c.bottom - c.top
+                                                val nl = (c.left + dx).coerceIn(0f, 1f - w)
+                                                val nt = (c.top + dy).coerceIn(0f, 1f - h)
+                                                CropNorm(nl, nt, nl + w, nt + h)
                                             }
-                                            DragHandle.Left -> crop.copy(left = crop.left + dx).clamped()
-                                            DragHandle.Right -> crop.copy(right = crop.right + dx).clamped()
-                                            DragHandle.Top -> crop.copy(top = crop.top + dy).clamped()
-                                            DragHandle.Bottom -> crop.copy(bottom = crop.bottom + dy).clamped()
-                                            DragHandle.TopLeft -> crop.copy(
-                                                left = crop.left + dx,
-                                                top = crop.top + dy
-                                            ).clamped()
-                                            DragHandle.TopRight -> crop.copy(
-                                                right = crop.right + dx,
-                                                top = crop.top + dy
-                                            ).clamped()
-                                            DragHandle.BottomLeft -> crop.copy(
-                                                left = crop.left + dx,
-                                                bottom = crop.bottom + dy
-                                            ).clamped()
-                                            DragHandle.BottomRight -> crop.copy(
-                                                right = crop.right + dx,
-                                                bottom = crop.bottom + dy
-                                            ).clamped()
-                                            DragHandle.None -> crop
-                                        }
+                                            DragHandle.Left -> c.copy(
+                                                left = (c.left + dx).coerceIn(0f, c.right - minSize)
+                                            )
+                                            DragHandle.Right -> c.copy(
+                                                right = (c.right + dx).coerceIn(c.left + minSize, 1f)
+                                            )
+                                            DragHandle.Top -> c.copy(
+                                                top = (c.top + dy).coerceIn(0f, c.bottom - minSize)
+                                            )
+                                            DragHandle.Bottom -> c.copy(
+                                                bottom = (c.bottom + dy).coerceIn(c.top + minSize, 1f)
+                                            )
+                                            DragHandle.TopLeft -> c.copy(
+                                                left = (c.left + dx).coerceIn(0f, c.right - minSize),
+                                                top = (c.top + dy).coerceIn(0f, c.bottom - minSize)
+                                            )
+                                            DragHandle.TopRight -> c.copy(
+                                                right = (c.right + dx).coerceIn(c.left + minSize, 1f),
+                                                top = (c.top + dy).coerceIn(0f, c.bottom - minSize)
+                                            )
+                                            DragHandle.BottomLeft -> c.copy(
+                                                left = (c.left + dx).coerceIn(0f, c.right - minSize),
+                                                bottom = (c.bottom + dy).coerceIn(c.top + minSize, 1f)
+                                            )
+                                            DragHandle.BottomRight -> c.copy(
+                                                right = (c.right + dx).coerceIn(c.left + minSize, 1f),
+                                                bottom = (c.bottom + dy).coerceIn(c.top + minSize, 1f)
+                                            )
+                                            DragHandle.None -> c
+                                        }.clamped()
                                     }
                                 )
                             }
                     ) {
-                        // Dim outside crop
                         val l = offsetX + crop.left * drawW
                         val t = offsetY + crop.top * drawH
                         val r = offsetX + crop.right * drawW
@@ -215,11 +237,11 @@ fun CropScreen(
                             color = SeGold,
                             topLeft = Offset(l, t),
                             size = Size(r - l, b - t),
-                            style = Stroke(width = 3f)
+                            style = Stroke(width = 4f)
                         )
-                        listOf(Offset(l, t), Offset(r, t), Offset(l, b), Offset(r, b)).forEach { c ->
-                            drawCircle(SeGold, radius = 14f, center = c)
-                            drawCircle(Color.White, radius = 6f, center = c)
+                        listOf(Offset(l, t), Offset(r, t), Offset(l, b), Offset(r, b)).forEach { center ->
+                            drawCircle(SeGold, radius = 18f, center = center)
+                            drawCircle(Color.White, radius = 8f, center = center)
                         }
                     }
                 }
@@ -227,7 +249,10 @@ fun CropScreen(
         }
 
         Spacer(modifier = Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
             if (index > 0) {
                 Button(
                     onClick = {
@@ -235,7 +260,10 @@ fun CropScreen(
                         sessionViewModel.setCropPageIndex(index - 1)
                     },
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = SeBgElevated, contentColor = SeTextPrimary)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SeBgElevated,
+                        contentColor = SeTextPrimary
+                    )
                 ) { Text("Previous") }
             }
             if (index < pages.lastIndex) {
@@ -245,7 +273,10 @@ fun CropScreen(
                         sessionViewModel.setCropPageIndex(index + 1)
                     },
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = SeBgElevated, contentColor = SeTextPrimary)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SeBgElevated,
+                        contentColor = SeTextPrimary
+                    )
                 ) { Text("Next page") }
             }
             Button(
@@ -255,7 +286,10 @@ fun CropScreen(
                     onFinished()
                 },
                 modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = SeGold, contentColor = SeBgPrimary)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = SeGold,
+                    contentColor = SeBgPrimary
+                )
             ) { Text("Done", fontWeight = FontWeight.SemiBold) }
         }
     }

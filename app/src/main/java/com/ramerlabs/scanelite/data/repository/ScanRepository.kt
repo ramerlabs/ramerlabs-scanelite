@@ -116,26 +116,125 @@ class ScanRepository @Inject constructor(
         format: ExportFormat,
         title: String
     ): Uri = withContext(Dispatchers.IO) {
-        val safe = title.replace(Regex("[^a-zA-Z0-9-_ ]"), "").trim().ifBlank { "ScanElite" }
-            .replace(' ', '_')
-        val cropped = pages.mapNotNull { page -> decodeCropped(page) }
-        require(cropped.isNotEmpty()) { "No pages to export" }
-        val file = when (format) {
-            ExportFormat.Pdf -> buildPdfFromBitmaps(cropped, safe)
-            ExportFormat.Jpeg -> {
-                val dest = File(context.cacheDir, "$safe.jpg")
-                FileOutputStream(dest).use { out ->
-                    cropped.first().compress(Bitmap.CompressFormat.JPEG, 95, out)
-                }
-                dest
-            }
-        }
-        cropped.forEach { it.recycle() }
+        val file = buildExportFile(pages, format, title)
         FileProvider.getUriForFile(
             context,
             "${context.packageName}.fileprovider",
             file
         )
+    }
+
+    /**
+     * Saves cropped export into the device gallery / Downloads and returns display name.
+     */
+    suspend fun saveToGallery(
+        pages: List<ScannedPage>,
+        format: ExportFormat,
+        title: String
+    ): String = withContext(Dispatchers.IO) {
+        val safe = sanitizeTitle(title)
+        val cropped = pages.mapNotNull { page -> decodeCropped(page) }
+        require(cropped.isNotEmpty()) { "No pages to export" }
+        try {
+            when (format) {
+                ExportFormat.Jpeg -> {
+                    val name = "$safe.jpg"
+                    val values = android.content.ContentValues().apply {
+                        put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name)
+                        put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                        if (android.os.Build.VERSION.SDK_INT >= 29) {
+                            put(
+                                android.provider.MediaStore.MediaColumns.RELATIVE_PATH,
+                                android.os.Environment.DIRECTORY_PICTURES + "/ScanElite"
+                            )
+                            put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
+                        }
+                    }
+                    val collection = if (android.os.Build.VERSION.SDK_INT >= 29) {
+                        android.provider.MediaStore.Images.Media.getContentUri(
+                            android.provider.MediaStore.VOLUME_EXTERNAL_PRIMARY
+                        )
+                    } else {
+                        android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                    }
+                    val uri = context.contentResolver.insert(collection, values)
+                        ?: error("Could not create gallery item")
+                    context.contentResolver.openOutputStream(uri)?.use { out ->
+                        cropped.first().compress(Bitmap.CompressFormat.JPEG, 95, out)
+                    } ?: error("Could not write gallery item")
+                    if (android.os.Build.VERSION.SDK_INT >= 29) {
+                        values.clear()
+                        values.put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0)
+                        context.contentResolver.update(uri, values, null, null)
+                    }
+                    name
+                }
+                ExportFormat.Pdf -> {
+                    val name = "$safe.pdf"
+                    val values = android.content.ContentValues().apply {
+                        put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name)
+                        put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/pdf")
+                        if (android.os.Build.VERSION.SDK_INT >= 29) {
+                            put(
+                                android.provider.MediaStore.MediaColumns.RELATIVE_PATH,
+                                android.os.Environment.DIRECTORY_DOWNLOADS + "/ScanElite"
+                            )
+                            put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
+                        }
+                    }
+                    val collection = if (android.os.Build.VERSION.SDK_INT >= 29) {
+                        android.provider.MediaStore.Downloads.getContentUri(
+                            android.provider.MediaStore.VOLUME_EXTERNAL_PRIMARY
+                        )
+                    } else {
+                        android.provider.MediaStore.Files.getContentUri("external")
+                    }
+                    val uri = context.contentResolver.insert(collection, values)
+                        ?: error("Could not create Downloads item")
+                    context.contentResolver.openOutputStream(uri)?.use { out ->
+                        val tmp = buildPdfFromBitmaps(cropped, safe)
+                        tmp.inputStream().use { input -> input.copyTo(out) }
+                        tmp.delete()
+                    } ?: error("Could not write PDF")
+                    if (android.os.Build.VERSION.SDK_INT >= 29) {
+                        values.clear()
+                        values.put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0)
+                        context.contentResolver.update(uri, values, null, null)
+                    }
+                    name
+                }
+            }
+        } finally {
+            cropped.forEach { it.recycle() }
+        }
+    }
+
+    private fun sanitizeTitle(title: String): String =
+        title.replace(Regex("[^a-zA-Z0-9-_ ]"), "").trim().ifBlank { "ScanElite" }
+            .replace(' ', '_')
+
+    private fun buildExportFile(
+        pages: List<ScannedPage>,
+        format: ExportFormat,
+        title: String
+    ): File {
+        val safe = sanitizeTitle(title)
+        val cropped = pages.mapNotNull { page -> decodeCropped(page) }
+        require(cropped.isNotEmpty()) { "No pages to export" }
+        return try {
+            when (format) {
+                ExportFormat.Pdf -> buildPdfFromBitmaps(cropped, safe)
+                ExportFormat.Jpeg -> {
+                    val dest = File(context.cacheDir, "$safe.jpg")
+                    FileOutputStream(dest).use { out ->
+                        cropped.first().compress(Bitmap.CompressFormat.JPEG, 95, out)
+                    }
+                    dest
+                }
+            }
+        } finally {
+            cropped.forEach { it.recycle() }
+        }
     }
 
     private fun decodeCropped(page: ScannedPage): Bitmap? {
@@ -164,12 +263,5 @@ class ScanRepository @Inject constructor(
         FileOutputStream(out).use { doc.writeTo(it) }
         doc.close()
         return out
-    }
-
-    private fun buildPdf(pages: List<ScannedPage>, name: String): File {
-        val bitmaps = pages.mapNotNull { decodeCropped(it) }
-        val file = buildPdfFromBitmaps(bitmaps, name)
-        bitmaps.forEach { it.recycle() }
-        return file
     }
 }

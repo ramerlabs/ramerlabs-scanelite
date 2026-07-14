@@ -152,4 +152,11 @@ class SessionViewModel @Inject constructor(
 
     suspend fun createShareUri() =
         repository.exportShareUri(_state.value.pages, _state.value.exportFormat, _state.value.documentTitle)
+
+    suspend fun saveToGallery(): String {
+        ensureAutoName()
+        val s = _state.value
+        repository.saveSession(s.documentTitle, s.pages)
+        return repository.saveToGallery(s.pages, s.exportFormat, s.documentTitle)
+    }
 }

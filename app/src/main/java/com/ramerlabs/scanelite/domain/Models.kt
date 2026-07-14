@@ -14,10 +14,10 @@ enum class ExportFormat { Pdf, Jpeg }
 
 /** Normalized crop rectangle in 0f..1f image space. */
 data class CropNorm(
-    val left: Float = 0f,
-    val top: Float = 0f,
-    val right: Float = 1f,
-    val bottom: Float = 1f
+    val left: Float = 0.08f,
+    val top: Float = 0.08f,
+    val right: Float = 0.92f,
+    val bottom: Float = 0.92f
 ) {
     fun clamped(): CropNorm {
         val l = left.coerceIn(0f, 0.95f)
