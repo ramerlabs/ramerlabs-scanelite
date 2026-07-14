@@ -16,6 +16,7 @@ import androidx.navigation.compose.rememberNavController
 import com.ramerlabs.scanelite.ui.camera.CameraScreen
 import com.ramerlabs.scanelite.ui.editor.PageEditorScreen
 import com.ramerlabs.scanelite.ui.home.HomeScreen
+import com.ramerlabs.scanelite.ui.license.LicenseGateScreen
 import com.ramerlabs.scanelite.ui.navigation.Routes
 import com.ramerlabs.scanelite.ui.review.ReviewScreen
 import com.ramerlabs.scanelite.ui.session.SessionViewModel
@@ -34,7 +35,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             ScanEliteTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = SeBgPrimary) {
-                    ScanEliteNav()
+                    LicenseGateScreen {
+                        ScanEliteNav()
+                    }
                 }
             }
         }
