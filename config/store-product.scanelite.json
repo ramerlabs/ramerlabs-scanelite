@@ -1,0 +1,42 @@
+{
+  "product_name": "ScanElite",
+  "slug": "scanelite",
+  "woocommerce_product_id": 468,
+  "product_url": "https://ramerlabs.com/product/scanelite/",
+  "regular_price": "15",
+  "type": "simple",
+  "virtual": true,
+  "category": {
+    "id": 270,
+    "name": "Mobile App",
+    "slug": "mobile-app"
+  },
+  "tags": [
+    "document scanner",
+    "android app",
+    "mobile app",
+    "PDF export",
+    "receipt scanner",
+    "batch scan",
+    "camera scanner",
+    "RamerLabs",
+    "lifetime license",
+    "file sharing",
+    "productivity",
+    "ScanElite"
+  ],
+  "images": {
+    "media_id": 469,
+    "source_url": "https://ramerlabs.com/wp-content/uploads/2026/07/scanelite-logo.png",
+    "local_source": "brand/logo.png"
+  },
+  "description_file": "config/store-description.html",
+  "short_description_file": "config/store-short-description.html",
+  "description_word_count_target": 600,
+  "license_manager": {
+    "product_slug": "scanelite",
+    "plan": "Lifetime",
+    "max_activations": 1
+  },
+  "credits": "A product by RamerLabs · https://ramerlabs.com"
+}

@@ -12,11 +12,28 @@ enum class EdgeStyle { NeonBlue, Gold }
 
 enum class ExportFormat { Pdf, Jpeg }
 
+/** Normalized crop rectangle in 0f..1f image space. */
+data class CropNorm(
+    val left: Float = 0f,
+    val top: Float = 0f,
+    val right: Float = 1f,
+    val bottom: Float = 1f
+) {
+    fun clamped(): CropNorm {
+        val l = left.coerceIn(0f, 0.95f)
+        val t = top.coerceIn(0f, 0.95f)
+        val r = right.coerceIn(l + 0.05f, 1f)
+        val b = bottom.coerceIn(t + 0.05f, 1f)
+        return CropNorm(l, t, r, b)
+    }
+}
+
 data class ScannedPage(
     val id: String,
     val uriPath: String,
     val filter: ScanFilter = ScanFilter.MagicColor,
-    val rotationDeg: Int = 0
+    val rotationDeg: Int = 0,
+    val crop: CropNorm = CropNorm()
 )
 
 data class ScanDocument(

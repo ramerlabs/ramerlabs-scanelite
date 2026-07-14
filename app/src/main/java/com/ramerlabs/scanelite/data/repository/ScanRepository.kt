@@ -116,16 +116,21 @@ class ScanRepository @Inject constructor(
         format: ExportFormat,
         title: String
     ): Uri = withContext(Dispatchers.IO) {
-        val safe = title.replace(Regex("[^a-zA-Z0-9-_ ]"), "").ifBlank { "ScanElite" }
+        val safe = title.replace(Regex("[^a-zA-Z0-9-_ ]"), "").trim().ifBlank { "ScanElite" }
+            .replace(' ', '_')
+        val cropped = pages.mapNotNull { page -> decodeCropped(page) }
+        require(cropped.isNotEmpty()) { "No pages to export" }
         val file = when (format) {
-            ExportFormat.Pdf -> buildPdf(pages, safe)
+            ExportFormat.Pdf -> buildPdfFromBitmaps(cropped, safe)
             ExportFormat.Jpeg -> {
-                val first = File(pages.first().uriPath)
                 val dest = File(context.cacheDir, "$safe.jpg")
-                first.copyTo(dest, overwrite = true)
+                FileOutputStream(dest).use { out ->
+                    cropped.first().compress(Bitmap.CompressFormat.JPEG, 95, out)
+                }
                 dest
             }
         }
+        cropped.forEach { it.recycle() }
         FileProvider.getUriForFile(
             context,
             "${context.packageName}.fileprovider",
@@ -133,19 +138,38 @@ class ScanRepository @Inject constructor(
         )
     }
 
-    private fun buildPdf(pages: List<ScannedPage>, name: String): File {
+    private fun decodeCropped(page: ScannedPage): Bitmap? {
+        val src = android.graphics.BitmapFactory.decodeFile(page.uriPath) ?: return null
+        val crop = page.crop.clamped()
+        val left = (crop.left * src.width).toInt().coerceIn(0, src.width - 1)
+        val top = (crop.top * src.height).toInt().coerceIn(0, src.height - 1)
+        val right = (crop.right * src.width).toInt().coerceIn(left + 1, src.width)
+        val bottom = (crop.bottom * src.height).toInt().coerceIn(top + 1, src.height)
+        val w = right - left
+        val h = bottom - top
+        val out = Bitmap.createBitmap(src, left, top, w, h)
+        if (out !== src) src.recycle()
+        return out
+    }
+
+    private fun buildPdfFromBitmaps(bitmaps: List<Bitmap>, name: String): File {
         val doc = PdfDocument()
-        pages.forEachIndexed { index, page ->
-            val bmp = android.graphics.BitmapFactory.decodeFile(page.uriPath) ?: return@forEachIndexed
+        bitmaps.forEachIndexed { index, bmp ->
             val pageInfo = PdfDocument.PageInfo.Builder(bmp.width, bmp.height, index + 1).create()
             val pdfPage = doc.startPage(pageInfo)
             pdfPage.canvas.drawBitmap(bmp, 0f, 0f, null)
             doc.finishPage(pdfPage)
-            bmp.recycle()
         }
         val out = File(context.cacheDir, "$name.pdf")
         FileOutputStream(out).use { doc.writeTo(it) }
         doc.close()
         return out
+    }
+
+    private fun buildPdf(pages: List<ScannedPage>, name: String): File {
+        val bitmaps = pages.mapNotNull { decodeCropped(it) }
+        val file = buildPdfFromBitmaps(bitmaps, name)
+        bitmaps.forEach { it.recycle() }
+        return file
     }
 }

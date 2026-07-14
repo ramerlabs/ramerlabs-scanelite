@@ -6,6 +6,7 @@ object Routes {
     const val Camera = "camera"
     const val Editor = "editor"
     const val Review = "review"
+    const val Crop = "crop"
     const val Share = "share"
     const val Settings = "settings"
 }

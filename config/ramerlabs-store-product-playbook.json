@@ -1,0 +1,73 @@
+{
+  "version": "1.0",
+  "purpose": "Reusable WooCommerce + License Manager playbook for RamerLabs store products",
+  "company": {
+    "name": "RamerLabs",
+    "website": "https://ramerlabs.com",
+    "support_email": "support@ramerlabs.com",
+    "credits": "A product by RamerLabs · ramerlabs.com"
+  },
+  "credentials": {
+    "wp_app_password_file": "D:/cursor/blog_application_password.txt",
+    "notes": "site=, username=, application_password= (spaces in app password are fine; strip before Basic auth)"
+  },
+  "woocommerce": {
+    "create_product": "POST /wp-json/wc/v3/products",
+    "update_product": "PUT /wp-json/wc/v3/products/{id}",
+    "create_category": "POST /wp-json/wc/v3/products/categories",
+    "create_tag": "POST /wp-json/wc/v3/products/tags",
+    "defaults": {
+      "type": "simple",
+      "status": "publish",
+      "catalog_visibility": "visible",
+      "virtual": true,
+      "downloadable": false,
+      "description_target_words": 600,
+      "short_description_max_chars": 350
+    },
+    "content_rules": {
+      "description": "Ad-style HTML ~600 words: problem, product, features list, license how-to, CTA, credits with ramerlabs.com",
+      "short_description": "1-2 sentences with benefit + license mention",
+      "image": "Upload brand logo or 16:9 hero via POST /wp-json/wp/v2/media then set products.images[0].id",
+      "tags": "5–12 product discovery tags",
+      "categories": "Always assign a primary category (e.g. Mobile App, Wordpress Plugin, Script)"
+    }
+  },
+  "license_manager": {
+    "link": "POST /wp-json/ramerlabs-license/v1/admin/link-store-product",
+    "create_license": "POST /wp-json/ramerlabs-license/v1/admin/create-license",
+    "link_body_fields": [
+      "product_slug",
+      "woocommerce_product_id",
+      "lifetime",
+      "plan_name",
+      "version",
+      "max_activations",
+      "name",
+      "description",
+      "type"
+    ],
+    "customer_facing_rules": [
+      "Never expose license server URL in UI, errors, or headers",
+      "Show buy URL as ramerlabs.com product page only",
+      "Activation UI: key field + Activate + Buy license"
+    ]
+  },
+  "github": {
+    "licensed_public_repo_pattern": "ramerlabs-{slug}",
+    "do_not_push_license_keys": true,
+    "readme_must_include": ["hero/logo image", "buy link", "credits ramerlabs.com"]
+  },
+  "last_example": {
+    "product": "ScanElite",
+    "slug": "scanelite",
+    "category": "Mobile App",
+    "price": "15",
+    "product_url": "https://ramerlabs.com/product/scanelite/",
+    "config_files": [
+      "config/store-description.html",
+      "config/store-short-description.html",
+      "config/store-product.scanelite.json"
+    ]
+  }
+}

@@ -14,6 +14,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.ramerlabs.scanelite.ui.camera.CameraScreen
+import com.ramerlabs.scanelite.ui.crop.CropScreen
 import com.ramerlabs.scanelite.ui.editor.PageEditorScreen
 import com.ramerlabs.scanelite.ui.home.HomeScreen
 import com.ramerlabs.scanelite.ui.license.LicenseGateScreen
@@ -96,13 +97,24 @@ private fun ScanEliteNav() {
         composable(Routes.Review) {
             ReviewScreen(
                 sessionViewModel = sessionViewModel,
-                onShare = { navController.navigate(Routes.Share) },
+                onShare = {
+                    sessionViewModel.ensureAutoName()
+                    sessionViewModel.setCropPageIndex(0)
+                    navController.navigate(Routes.Crop)
+                },
                 onSaveOnly = {
+                    sessionViewModel.ensureAutoName()
                     sessionViewModel.resetSession()
                     navController.navigate(Routes.Home) {
                         popUpTo(Routes.Home) { inclusive = true }
                     }
                 }
+            )
+        }
+        composable(Routes.Crop) {
+            CropScreen(
+                sessionViewModel = sessionViewModel,
+                onFinished = { navController.navigate(Routes.Share) }
             )
         }
         composable(Routes.Share) {

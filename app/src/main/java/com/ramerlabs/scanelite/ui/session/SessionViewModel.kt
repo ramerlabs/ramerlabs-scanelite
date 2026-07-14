@@ -4,12 +4,16 @@ import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ramerlabs.scanelite.data.repository.ScanRepository
+import com.ramerlabs.scanelite.domain.CropNorm
 import com.ramerlabs.scanelite.domain.EdgeStyle
 import com.ramerlabs.scanelite.domain.ExportFormat
 import com.ramerlabs.scanelite.domain.ScanFilter
 import com.ramerlabs.scanelite.domain.ScanMode
 import com.ramerlabs.scanelite.domain.ScannedPage
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,11 +30,17 @@ data class SessionUiState(
     val processing: Boolean = false,
     val pages: List<ScannedPage> = emptyList(),
     val editingPageId: String? = null,
+    val cropPageIndex: Int = 0,
     val activeFilter: ScanFilter = ScanFilter.MagicColor,
-    val documentTitle: String = "Untitled scan",
-    val exportFormat: ExportFormat = ExportFormat.Pdf,
+    val documentTitle: String = nextAutoName(),
+    val exportFormat: ExportFormat = ExportFormat.Jpeg,
     val message: String? = null
 )
+
+fun nextAutoName(): String {
+    val stamp = SimpleDateFormat("yyyy-MM-dd_HHmmss", Locale.US).format(Date())
+    return "ScanElite_$stamp"
+}
 
 @HiltViewModel
 class SessionViewModel @Inject constructor(
@@ -46,6 +56,27 @@ class SessionViewModel @Inject constructor(
     fun setTitle(title: String) = _state.update { it.copy(documentTitle = title) }
     fun setExportFormat(format: ExportFormat) = _state.update { it.copy(exportFormat = format) }
     fun clearMessage() = _state.update { it.copy(message = null) }
+    fun setCropPageIndex(index: Int) = _state.update {
+        it.copy(cropPageIndex = index.coerceIn(0, (it.pages.size - 1).coerceAtLeast(0)))
+    }
+
+    fun ensureAutoName() {
+        _state.update { s ->
+            if (s.documentTitle.isBlank() || s.documentTitle == "Untitled scan") {
+                s.copy(documentTitle = nextAutoName())
+            } else s
+        }
+    }
+
+    fun updateCropForPage(pageId: String, crop: CropNorm) {
+        _state.update { s ->
+            s.copy(
+                pages = s.pages.map {
+                    if (it.id == pageId) it.copy(crop = crop.clamped()) else it
+                }
+            )
+        }
+    }
 
     fun setFilter(filter: ScanFilter) {
         _state.update { s ->
@@ -90,11 +121,13 @@ class SessionViewModel @Inject constructor(
             _state.update { it.copy(capturing = true, processing = true, edgeLocked = false) }
             val page = repository.persistBitmap(bitmap, _state.value.activeFilter)
             _state.update {
+                val title = if (it.pages.isEmpty()) nextAutoName() else it.documentTitle
                 it.copy(
                     capturing = false,
                     processing = false,
                     pages = it.pages + page,
                     editingPageId = page.id,
+                    documentTitle = title,
                     message = if (it.mode == ScanMode.Batch) "Page ${it.pages.size + 1} added" else null
                 )
             }
@@ -105,11 +138,14 @@ class SessionViewModel @Inject constructor(
         _state.value = SessionUiState(
             mode = _state.value.mode,
             autoCapture = _state.value.autoCapture,
-            edgeStyle = _state.value.edgeStyle
+            edgeStyle = _state.value.edgeStyle,
+            documentTitle = nextAutoName(),
+            exportFormat = ExportFormat.Jpeg
         )
     }
 
     suspend fun finalizeDocument(): Long {
+        ensureAutoName()
         val s = _state.value
         return repository.saveSession(s.documentTitle, s.pages)
     }

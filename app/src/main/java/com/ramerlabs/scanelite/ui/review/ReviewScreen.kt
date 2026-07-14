@@ -164,7 +164,7 @@ fun ReviewScreen(
                 onClick = onShare,
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = SeGold, contentColor = SeBgPrimary)
-            ) { Text("Share", fontWeight = FontWeight.SemiBold) }
+            ) { Text("Crop & export", fontWeight = FontWeight.SemiBold) }
         }
     }
 }

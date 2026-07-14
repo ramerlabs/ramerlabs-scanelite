@@ -90,13 +90,14 @@ fun ShareHubScreen(
             .padding(20.dp)
     ) {
         Text("Share Hub", fontWeight = FontWeight.Bold, fontSize = 22.sp, color = SeTextPrimary)
+        Text(state.documentTitle, color = SeGold, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
         Text("Export format", color = SeTextSecondary, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FormatPill("PDF", state.exportFormat == ExportFormat.Pdf) {
-                sessionViewModel.setExportFormat(ExportFormat.Pdf)
-            }
             FormatPill("JPEG", state.exportFormat == ExportFormat.Jpeg) {
                 sessionViewModel.setExportFormat(ExportFormat.Jpeg)
+            }
+            FormatPill("PDF", state.exportFormat == ExportFormat.Pdf) {
+                sessionViewModel.setExportFormat(ExportFormat.Pdf)
             }
         }
 
